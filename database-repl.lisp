@@ -1,0 +1,33 @@
+(defun database-repl()
+       (let((cmd (database-read)))
+          (unless (and (eq (car cmd) 'quit) *admin-logged*)
+           (database-print (database-eval cmd))
+           (database-repl))))
+
+(defun database-read()
+  (let((cmd (read-from-string (concatenate 'string "(" (read-line) ")"))))
+    (flet ((quote-it(x)
+            (list 'quote x)))
+      (cons (car cmd) (mapcar #'quote-it(cdr cmd))))))
+
+(defun database-eval(input)
+    (if (member (car input) (if *logged* (if *admin-logged* *admin-commands* *consumer-commands*) *guest-commands*))
+      (if (and (member (car input) *param-req-com*) (not (= (length input) 2)))
+        '(this function requires one parameter to access)
+        (eval input))
+        '(i do not know the command)))
+
+(defun tweak-text (lst caps lit)
+          (when lst
+           (let ((item (car lst))
+                 (rest (cdr lst)))
+            (cond ((eql item #\space) (cons item (tweak-text rest caps lit)))
+                  ((member item '(#\! #\? #\.)) (cons item (tweak-text rest t lit)))
+                  ((eql item #\") (tweak-text rest caps (not lit)))
+                  (lit (cons item (tweak-text rest nil lit)))
+                  (caps (cons (char-upcase item) (tweak-text rest nil lit)))
+                  (t (cons (char-downcase item) (tweak-text rest nil nil)))))))
+
+(defun database-print (lst)
+ (princ (coerce (tweak-text (coerce (string-trim "()" (prin1-to-string lst)) 'list) t nil) 'string))
+ (fresh-line))
